@@ -32,6 +32,10 @@ public class ConsumerBean {
      * 默认消费消息线程池大小
      */
     private static final Integer DEFAULT_CONSUME_THREAD_POOL_SIZE = 16;
+    /**
+     * 拉取消息流控延迟时间
+     */
+    private static final long PULL_TIME_DELAY_MILLS_WHEN_FLOW_CONTROL = 50;
 
 
 
@@ -164,13 +168,14 @@ public class ConsumerBean {
         state.set(true);
         Runnable receiveTask = () -> {
             while (state.get()) {
-                //若消息堆积数量大于消费线程池大小，则进行线程让步
-                int count = messageCount.get();
-                if (count >= consumeThreadPoolSize) {
-                    Thread.yield();
-                    continue;
-                }
                 try {
+                    //若消息堆积数量大于消费线程池大小，则进行线程让步
+                    int count = messageCount.get();
+                    if (count >= consumeThreadPoolSize) {
+                        Thread.yield();
+                        TimeUnit.MILLISECONDS.sleep(PULL_TIME_DELAY_MILLS_WHEN_FLOW_CONTROL);
+                        continue;
+                    }
                     //预增加消息堆积数
                     if (!messageCount.compareAndSet(count, count + 1)) {
                         continue;
